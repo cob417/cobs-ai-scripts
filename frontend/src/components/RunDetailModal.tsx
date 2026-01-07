@@ -18,6 +18,11 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({ runId, onClose }
   const [run, setRun] = useState<JobRun | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Default to HTML view if HTML content is available, otherwise markdown
+  const [viewMode, setViewMode] = useState<'html' | 'markdown'>(() => {
+    // Will be set properly after run loads
+    return 'html';
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -29,6 +34,12 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({ runId, onClose }
         const data = await getJobRun(runId);
         if (!cancelled) {
           setRun(data);
+          // Set default view mode based on available content
+          if (data.html_output_content) {
+            setViewMode('html');
+          } else if (data.output_content) {
+            setViewMode('markdown');
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -113,10 +124,43 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({ runId, onClose }
           <div className="tabs">
             <div className="tab-content">
               <div className="tab-pane active">
-                <h3>Output</h3>
-                <div className="output-content">
-                  {run.output_content ? (
+                <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <h3 style={{ margin: 0, flex: 1 }}>Output</h3>
+                  {run.html_output_content && run.output_content && (
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => setViewMode('html')}
+                        className={viewMode === 'html' ? 'btn-active' : ''}
+                        style={{ padding: '0.5rem 1rem', border: '1px solid #ddd', background: viewMode === 'html' ? '#3498db' : 'white', color: viewMode === 'html' ? 'white' : '#333', cursor: 'pointer', borderRadius: '4px' }}
+                      >
+                        HTML
+                      </button>
+                      <button
+                        onClick={() => setViewMode('markdown')}
+                        className={viewMode === 'markdown' ? 'btn-active' : ''}
+                        style={{ padding: '0.5rem 1rem', border: '1px solid #ddd', background: viewMode === 'markdown' ? '#3498db' : 'white', color: viewMode === 'markdown' ? 'white' : '#333', cursor: 'pointer', borderRadius: '4px' }}
+                      >
+                        Markdown
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className={`output-content ${viewMode === 'html' ? 'html-view' : ''}`}>
+                  {viewMode === 'html' && run.html_output_content ? (
+                    <div dangerouslySetInnerHTML={{ __html: run.html_output_content }} />
+                  ) : viewMode === 'html' && !run.html_output_content && run.output_content ? (
+                    <div>
+                      <p style={{ color: '#666', fontStyle: 'italic', marginBottom: '1rem' }}>HTML version not available. Showing markdown:</p>
+                      <ReactMarkdown>{run.output_content}</ReactMarkdown>
+                    </div>
+                  ) : viewMode === 'markdown' && run.output_content ? (
                     <ReactMarkdown>{run.output_content}</ReactMarkdown>
+                  ) : run.html_output_content ? (
+                    // Fallback: if we have HTML but user selected markdown, show HTML with note
+                    <div>
+                      <p style={{ color: '#666', fontStyle: 'italic', marginBottom: '1rem' }}>Markdown not available. Showing HTML:</p>
+                      <div dangerouslySetInnerHTML={{ __html: run.html_output_content }} />
+                    </div>
                   ) : (
                     <p className="no-content">No output available</p>
                   )}

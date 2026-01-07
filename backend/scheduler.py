@@ -16,6 +16,10 @@ from database import Job, JobRun, get_db
 SCRIPT_DIR = Path(__file__).parent.parent.absolute()
 RUN_SCRIPT = SCRIPT_DIR / "run_ai_script.py"
 
+# Import markdown to HTML converter
+sys.path.insert(0, str(SCRIPT_DIR))
+from utils.markdown_utils import markdown_to_html
+
 logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler()
 
@@ -61,13 +65,66 @@ def execute_job(job_id: int):
                 timeout=3600  # 1 hour timeout
             )
             
-            # Capture output and logs
-            output_content = result.stdout
+            # Capture logs (stdout contains log messages)
             log_content = result.stderr + "\n" + result.stdout
+            
+            # Read the actual output file that was created
+            # Files are saved as: YYYY-MM-DD {prompt_name} HHMMSS.md
+            output_content = None
+            html_output_content = None
+            
+            if result.returncode == 0:
+                # Find the most recently created output file for this prompt
+                prompt_name = job.prompt_filename.replace('.md', '')
+                data_dir = SCRIPT_DIR / "data"
+                
+                if data_dir.exists():
+                    # Find files matching the pattern for this prompt
+                    # Pattern: YYYY-MM-DD {prompt_name} HHMMSS.md
+                    pattern = f"* {prompt_name} *.md"
+                    matching_files = list(data_dir.glob(pattern))
+                    
+                    if matching_files:
+                        # Get the most recently modified file
+                        latest_file = max(matching_files, key=lambda p: p.stat().st_mtime)
+                        
+                        # Check if file was created after job started (within 10 minutes to be safe)
+                        file_time = latest_file.stat().st_mtime
+                        job_start_time = job_run.started_at.timestamp()
+                        
+                        # Use file if it was created after job start (or within 10 minutes before, to handle clock skew)
+                        if file_time >= job_start_time - 600:  # File created within 10 minutes of job start
+                            try:
+                                with open(latest_file, 'r', encoding='utf-8') as f:
+                                    output_content = f.read()
+                                logger.info(f"Read markdown output from file: {latest_file.name} ({len(output_content)} characters)")
+                                
+                                # Convert markdown output to HTML
+                                if output_content:
+                                    try:
+                                        html_output_content = markdown_to_html(output_content)
+                                        logger.info(f"Converted markdown to HTML ({len(html_output_content)} characters)")
+                                    except Exception as e:
+                                        logger.warning(f"Failed to convert output to HTML: {e}")
+                            except Exception as e:
+                                logger.warning(f"Failed to read output file {latest_file}: {e}")
+                        else:
+                            logger.warning(f"Output file {latest_file.name} was created too long before job start (file: {file_time}, job: {job_start_time})")
+                    
+                    if not output_content:
+                        logger.warning("Could not find matching output file, using stdout as fallback")
+                        output_content = result.stdout
+                else:
+                    logger.warning("Data directory does not exist, using stdout as fallback")
+                    output_content = result.stdout
+            else:
+                # On failure, use stdout as output
+                output_content = result.stdout
             
             # Update job run
             job_run.status = "success" if result.returncode == 0 else "failed"
             job_run.output_content = output_content
+            job_run.html_output_content = html_output_content
             job_run.log_content = log_content
             job_run.completed_at = datetime.utcnow()
             

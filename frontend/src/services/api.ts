@@ -74,7 +74,8 @@ export interface JobRun {
   job_id: number;
   job_name: string;
   status: 'running' | 'success' | 'failed';
-  output_content?: string;
+  output_content?: string;  // Markdown
+  html_output_content?: string;  // HTML formatted
   log_content?: string;
   started_at: string;
   completed_at?: string;

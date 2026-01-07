@@ -43,7 +43,8 @@ class JobRun(Base):
     id = Column(Integer, primary_key=True, index=True)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
     status = Column(String, nullable=False)  # "running", "success", "failed"
-    output_content = Column(Text, nullable=True)
+    output_content = Column(Text, nullable=True)  # Markdown output
+    html_output_content = Column(Text, nullable=True)  # HTML formatted output
     log_content = Column(Text, nullable=True)
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)

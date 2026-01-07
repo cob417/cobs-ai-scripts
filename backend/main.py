@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
-app = FastAPI(title="AI Script Scheduler API")
+app = FastAPI(title="Cob's AI Scripts API")
 
 # CORS middleware
 app.add_middleware(
@@ -100,7 +100,28 @@ async def parse_cron(request: CronParseRequest):
 async def list_jobs(db: Session = Depends(get_db)):
     """List all jobs"""
     jobs = db.query(Job).all()
-    return jobs
+    result = []
+    for job in jobs:
+        # Check if job is currently running (has a run with status="running" and no completed_at)
+        running_run = db.query(JobRun).filter(
+            JobRun.job_id == job.id,
+            JobRun.status == "running",
+            JobRun.completed_at.is_(None)
+        ).first()
+        
+        job_dict = {
+            "id": job.id,
+            "name": job.name,
+            "prompt_filename": job.prompt_filename,
+            "prompt_content": job.prompt_content,
+            "cron_expression": job.cron_expression,
+            "enabled": job.enabled,
+            "created_at": job.created_at,
+            "updated_at": job.updated_at,
+            "is_running": running_run is not None
+        }
+        result.append(JobResponse(**job_dict))
+    return result
 
 
 @app.get("/api/jobs/{job_id}", response_model=JobResponse)
@@ -109,7 +130,26 @@ async def get_job(job_id: int, db: Session = Depends(get_db)):
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return job
+    
+    # Check if job is currently running
+    running_run = db.query(JobRun).filter(
+        JobRun.job_id == job.id,
+        JobRun.status == "running",
+        JobRun.completed_at.is_(None)
+    ).first()
+    
+    job_dict = {
+        "id": job.id,
+        "name": job.name,
+        "prompt_filename": job.prompt_filename,
+        "prompt_content": job.prompt_content,
+        "cron_expression": job.cron_expression,
+        "enabled": job.enabled,
+        "created_at": job.created_at,
+        "updated_at": job.updated_at,
+        "is_running": running_run is not None
+    }
+    return JobResponse(**job_dict)
 
 
 @app.post("/api/jobs", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
@@ -156,7 +196,20 @@ async def create_job(job_data: JobCreate, db: Session = Depends(get_db)):
         add_job_to_scheduler(job, db)
     
     logger.info(f"Created job {job.id}: {job.name}")
-    return job
+    
+    # Return with is_running status
+    job_dict = {
+        "id": job.id,
+        "name": job.name,
+        "prompt_filename": job.prompt_filename,
+        "prompt_content": job.prompt_content,
+        "cron_expression": job.cron_expression,
+        "enabled": job.enabled,
+        "created_at": job.created_at,
+        "updated_at": job.updated_at,
+        "is_running": False  # New jobs are not running
+    }
+    return JobResponse(**job_dict)
 
 
 @app.put("/api/jobs/{job_id}", response_model=JobResponse)
@@ -205,7 +258,27 @@ async def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get
     update_job_in_scheduler(job, db)
     
     logger.info(f"Updated job {job_id}: {job.name}")
-    return job
+    
+    # Check if job is currently running
+    running_run = db.query(JobRun).filter(
+        JobRun.job_id == job.id,
+        JobRun.status == "running",
+        JobRun.completed_at.is_(None)
+    ).first()
+    
+    # Return with is_running status
+    job_dict = {
+        "id": job.id,
+        "name": job.name,
+        "prompt_filename": job.prompt_filename,
+        "prompt_content": job.prompt_content,
+        "cron_expression": job.cron_expression,
+        "enabled": job.enabled,
+        "created_at": job.created_at,
+        "updated_at": job.updated_at,
+        "is_running": running_run is not None
+    }
+    return JobResponse(**job_dict)
 
 
 @app.delete("/api/jobs/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -254,6 +327,7 @@ async def run_job_manual(job_id: int, db: Session = Depends(get_db)):
         job_name=job.name,
         status=job_run.status,
         output_content=job_run.output_content,
+        html_output_content=job_run.html_output_content,
         log_content=job_run.log_content,
         started_at=job_run.started_at,
         completed_at=job_run.completed_at,
@@ -277,6 +351,7 @@ async def list_job_runs(limit: int = 50, db: Session = Depends(get_db)):
             job_name=run.job.name,
             status=run.status,
             output_content=run.output_content,
+            html_output_content=run.html_output_content,
             log_content=run.log_content,
             started_at=run.started_at,
             completed_at=run.completed_at,
@@ -299,6 +374,7 @@ async def get_job_run(run_id: int, db: Session = Depends(get_db)):
         job_name=run.job.name,
         status=run.status,
         output_content=run.output_content,
+        html_output_content=run.html_output_content,
         log_content=run.log_content,
         started_at=run.started_at,
         completed_at=run.completed_at,

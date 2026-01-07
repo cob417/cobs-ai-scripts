@@ -30,6 +30,7 @@ class JobResponse(BaseModel):
     enabled: bool
     created_at: datetime
     updated_at: datetime
+    is_running: Optional[bool] = False  # Whether job is currently running
     
     class Config:
         from_attributes = True
@@ -40,7 +41,8 @@ class JobRunResponse(BaseModel):
     job_id: int
     job_name: str
     status: str
-    output_content: Optional[str] = None
+    output_content: Optional[str] = None  # Markdown
+    html_output_content: Optional[str] = None  # HTML formatted
     log_content: Optional[str] = None
     started_at: datetime
     completed_at: Optional[datetime] = None
