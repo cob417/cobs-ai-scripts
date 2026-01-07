@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  cob-ai-scripts:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cob-ai-scripts
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persistent database
+      - ./backend/scheduler.db:/app/backend/scheduler.db
+      # Job output data
+      - ./data:/app/data
+      # Prompt files (optional - can be managed via UI)
+      - ./prompts:/app/prompts
+    environment:
+      # Required: OpenAI API Key
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Optional: OpenAI Model (defaults to gpt-5.2)
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-5.2}
+      # Optional: Web search enabled (defaults to true)
+      - WEB_SEARCH=${WEB_SEARCH:-true}
+      # Email configuration (optional)
+      - EMAIL_USER=${EMAIL_USER:-}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
+      - SMTP_SERVER=${SMTP_SERVER:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/status')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
