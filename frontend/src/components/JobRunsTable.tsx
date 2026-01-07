@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { JobRun } from '../services/api';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 
 interface JobRunsTableProps {
   runs: JobRun[];
@@ -57,8 +57,7 @@ export const JobRunsTable: React.FC<JobRunsTableProps> = ({ runs, onView }) => {
               <td>{run.job_name}</td>
               <td>{getStatusBadge(run.status)}</td>
               <td>
-                <div>{format(new Date(run.started_at), 'MMM d, yyyy HH:mm:ss')}</div>
-                <div className="time-ago">{formatDistanceToNow(new Date(run.started_at), { addSuffix: true })}</div>
+                {format(new Date(run.started_at), 'MMM d, yyyy HH:mm:ss')}
               </td>
               <td>{getDuration(run)}</td>
               <td>

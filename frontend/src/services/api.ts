@@ -51,6 +51,7 @@ export interface Job {
   prompt_content: string;
   cron_expression: string;
   enabled: boolean;
+  email_recipients?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +61,7 @@ export interface JobCreate {
   prompt_content: string;
   cron_expression: string;
   enabled?: boolean;
+  email_recipients?: string[];
 }
 
 export interface JobUpdate {
@@ -67,6 +69,7 @@ export interface JobUpdate {
   prompt_content?: string;
   cron_expression?: string;
   enabled?: boolean;
+  email_recipients?: string[];
 }
 
 export interface JobRun {

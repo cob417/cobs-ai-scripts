@@ -13,6 +13,7 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 import { useJobs } from './hooks/useJobs';
 import { useJobRuns } from './hooks/useJobRuns';
 import { useStatus } from './hooks/useStatus';
+import { getJobRuns } from './services/api';
 import './App.css';
 
 function App() {
@@ -23,15 +24,16 @@ function App() {
   const [showForm, setShowForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [selectedRun, setSelectedRun] = useState<number | null>(null);
+  const [runningJobs, setRunningJobs] = useState<Set<number>>(new Set());
 
-  const handleCreateJob = useCallback(async (data: JobCreate) => {
-    await create(data);
+  const handleCreateJob = useCallback(async (data: JobCreate | JobUpdate) => {
+    await create(data as JobCreate);
     setShowForm(false);
   }, [create]);
 
-  const handleUpdateJob = useCallback(async (data: JobUpdate) => {
+  const handleUpdateJob = useCallback(async (data: JobCreate | JobUpdate) => {
     if (!editingJob) return;
-    await update(editingJob.id, data);
+    await update(editingJob.id, data as JobUpdate);
     setEditingJob(null);
     setShowForm(false);
   }, [editingJob, update]);
@@ -47,10 +49,45 @@ function App() {
   }, [update]);
 
   const handleRunJob = useCallback(async (job: Job) => {
+    // Immediately set as running for UI feedback
+    setRunningJobs(prev => new Set(prev).add(job.id));
+    
     try {
       await run(job.id);
+      // Poll for completion - check job runs to see when it finishes
+      const checkCompletion = setInterval(async () => {
+        try {
+          const latestRuns = await getJobRuns(20);
+          const jobRun = latestRuns.find((r) => r.job_id === job.id && r.status !== 'running');
+          if (jobRun) {
+            setRunningJobs(prev => {
+              const next = new Set(prev);
+              next.delete(job.id);
+              return next;
+            });
+            clearInterval(checkCompletion);
+          }
+        } catch (e) {
+          // Ignore errors, will clear on next poll
+        }
+      }, 2000); // Check every 2 seconds
+      
+      // Clear running state after 5 minutes max
+      setTimeout(() => {
+        setRunningJobs(prev => {
+          const next = new Set(prev);
+          next.delete(job.id);
+          return next;
+        });
+        clearInterval(checkCompletion);
+      }, 300000);
     } catch (error) {
-      // Error is handled by the hook
+      // Error is handled by the hook, but clear running state
+      setRunningJobs(prev => {
+        const next = new Set(prev);
+        next.delete(job.id);
+        return next;
+      });
     }
   }, [run]);
 
@@ -83,7 +120,10 @@ function App() {
     <ErrorBoundary>
       <div className="app">
         <header className="app-header">
-          <h1>AI Script Scheduler</h1>
+          <div className="header-brand">
+            <img src="/static/logo.png" alt="Cob's AI Scripts" className="header-logo" />
+            <h1>Cob's AI Scripts</h1>
+          </div>
           {status && (
             <div className="status-info">
               <span className={`scheduler-status ${status.scheduler_running ? 'running' : 'stopped'}`}>
@@ -112,6 +152,7 @@ function App() {
 
               <JobList
                 jobs={jobs}
+                runningJobs={runningJobs}
                 onEdit={handleEditJob}
                 onDelete={handleDeleteJob}
                 onToggle={handleToggleJob}

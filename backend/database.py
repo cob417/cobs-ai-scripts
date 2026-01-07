@@ -29,6 +29,7 @@ class Job(Base):
     prompt_content = Column(Text, nullable=False)
     cron_expression = Column(String, nullable=False)
     enabled = Column(Boolean, default=True)
+    email_recipients = Column(Text, nullable=True)  # JSON array of email addresses
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

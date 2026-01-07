@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from typing import List
 import logging
 import re
+import json
 from pathlib import Path
 
 from database import init_db, get_db, Job, JobRun
@@ -109,6 +110,14 @@ async def list_jobs(db: Session = Depends(get_db)):
             JobRun.completed_at.is_(None)
         ).first()
         
+        # Parse email_recipients from JSON string
+        email_recipients = None
+        if job.email_recipients:
+            try:
+                email_recipients = json.loads(job.email_recipients)
+            except (json.JSONDecodeError, TypeError):
+                email_recipients = []
+        
         job_dict = {
             "id": job.id,
             "name": job.name,
@@ -116,6 +125,7 @@ async def list_jobs(db: Session = Depends(get_db)):
             "prompt_content": job.prompt_content,
             "cron_expression": job.cron_expression,
             "enabled": job.enabled,
+            "email_recipients": email_recipients,
             "created_at": job.created_at,
             "updated_at": job.updated_at,
             "is_running": running_run is not None
@@ -138,6 +148,14 @@ async def get_job(job_id: int, db: Session = Depends(get_db)):
         JobRun.completed_at.is_(None)
     ).first()
     
+    # Parse email_recipients from JSON string
+    email_recipients = None
+    if job.email_recipients:
+        try:
+            email_recipients = json.loads(job.email_recipients)
+        except (json.JSONDecodeError, TypeError):
+            email_recipients = []
+    
     job_dict = {
         "id": job.id,
         "name": job.name,
@@ -145,6 +163,7 @@ async def get_job(job_id: int, db: Session = Depends(get_db)):
         "prompt_content": job.prompt_content,
         "cron_expression": job.cron_expression,
         "enabled": job.enabled,
+        "email_recipients": email_recipients,
         "created_at": job.created_at,
         "updated_at": job.updated_at,
         "is_running": running_run is not None
@@ -171,13 +190,22 @@ async def create_job(job_data: JobCreate, db: Session = Depends(get_db)):
     if existing_job:
         raise HTTPException(status_code=400, detail="Job name or filename already exists")
     
+    # Serialize email_recipients to JSON string
+    # Always include default email
+    DEFAULT_EMAIL = 'christopher.j.obrien@gmail.com'
+    recipients = job_data.email_recipients or []
+    if DEFAULT_EMAIL not in recipients:
+        recipients = [DEFAULT_EMAIL] + recipients
+    email_recipients_json = json.dumps(recipients)
+    
     # Create job
     job = Job(
         name=job_data.name,
         prompt_filename=prompt_filename,
         prompt_content=job_data.prompt_content,
         cron_expression=job_data.cron_expression,
-        enabled=job_data.enabled
+        enabled=job_data.enabled,
+        email_recipients=email_recipients_json
     )
     
     db.add(job)
@@ -193,6 +221,14 @@ async def create_job(job_data: JobCreate, db: Session = Depends(get_db)):
     
     logger.info(f"Created job {job.id}: {job.name}")
     
+    # Parse email_recipients from JSON string
+    email_recipients = None
+    if job.email_recipients:
+        try:
+            email_recipients = json.loads(job.email_recipients)
+        except (json.JSONDecodeError, TypeError):
+            email_recipients = []
+    
     # Return with is_running status
     job_dict = {
         "id": job.id,
@@ -201,6 +237,7 @@ async def create_job(job_data: JobCreate, db: Session = Depends(get_db)):
         "prompt_content": job.prompt_content,
         "cron_expression": job.cron_expression,
         "enabled": job.enabled,
+        "email_recipients": email_recipients,
         "created_at": job.created_at,
         "updated_at": job.updated_at,
         "is_running": False  # New jobs are not running
@@ -239,6 +276,15 @@ async def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get
     if job_data.enabled is not None:
         job.enabled = job_data.enabled
     
+    if job_data.email_recipients is not None:
+        # Serialize email_recipients to JSON string
+        # Always include default email
+        DEFAULT_EMAIL = 'christopher.j.obrien@gmail.com'
+        recipients = job_data.email_recipients or []
+        if DEFAULT_EMAIL not in recipients:
+            recipients = [DEFAULT_EMAIL] + recipients
+        job.email_recipients = json.dumps(recipients)
+    
     db.commit()
     db.refresh(job)
     
@@ -258,6 +304,14 @@ async def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get
         JobRun.completed_at.is_(None)
     ).first()
     
+    # Parse email_recipients from JSON string
+    email_recipients = None
+    if job.email_recipients:
+        try:
+            email_recipients = json.loads(job.email_recipients)
+        except (json.JSONDecodeError, TypeError):
+            email_recipients = []
+    
     # Return with is_running status
     job_dict = {
         "id": job.id,
@@ -266,6 +320,7 @@ async def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get
         "prompt_content": job.prompt_content,
         "cron_expression": job.cron_expression,
         "enabled": job.enabled,
+        "email_recipients": email_recipients,
         "created_at": job.created_at,
         "updated_at": job.updated_at,
         "is_running": running_run is not None

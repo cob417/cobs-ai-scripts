@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 
 interface JobListProps {
   jobs: Job[];
+  runningJobs?: Set<number>;
   onEdit: (job: Job) => void;
   onDelete: (job: Job) => void;
   onToggle: (job: Job) => void;
@@ -16,6 +17,7 @@ interface JobListProps {
 
 export const JobList: React.FC<JobListProps> = ({
   jobs,
+  runningJobs = new Set(),
   onEdit,
   onDelete,
   onToggle,
@@ -42,22 +44,35 @@ export const JobList: React.FC<JobListProps> = ({
           </tr>
         </thead>
         <tbody>
-          {jobs.map((job) => (
+          {jobs.map((job) => {
+            const isRunning = runningJobs.has(job.id);
+            return (
             <tr key={job.id} className={!job.enabled ? 'disabled' : ''}>
               <td>{job.name}</td>
               <td>
                 <code>{job.cron_expression}</code>
               </td>
               <td>
-                <span className={`status-badge ${job.enabled ? 'enabled' : 'disabled'}`}>
-                  {job.enabled ? 'Enabled' : 'Disabled'}
-                </span>
+                {isRunning ? (
+                  <span className="status-badge status-running">
+                    Running
+                  </span>
+                ) : (
+                  <span className={`status-badge ${job.enabled ? 'enabled' : 'disabled'}`}>
+                    {job.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                )}
               </td>
               <td>{format(new Date(job.created_at), 'MMM d, yyyy')}</td>
               <td>
                 <div className="action-buttons">
-                  <button onClick={() => onRun(job)} className="btn-run" title="Run Now">
-                    ▶
+                  <button 
+                    onClick={() => onRun(job)} 
+                    className="btn-run" 
+                    title="Run Now"
+                    disabled={isRunning}
+                  >
+                    {isRunning ? '🏃' : '▶'}
                   </button>
                   <button onClick={() => onToggle(job)} className="btn-toggle" title={job.enabled ? 'Disable' : 'Enable'}>
                     {job.enabled ? '⏸' : '▶'}
@@ -71,7 +86,8 @@ export const JobList: React.FC<JobListProps> = ({
                 </div>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -14,13 +14,36 @@ interface JobFormProps {
   onCancel: () => void;
 }
 
+const DEFAULT_EMAIL = 'christopher.j.obrien@gmail.com';
+
 export const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel }) => {
   const [name, setName] = useState(job?.name || '');
   const [promptContent, setPromptContent] = useState(job?.prompt_content || '');
   const [cronExpression, setCronExpression] = useState(job?.cron_expression || '0 9 * * *');
   const [enabled, setEnabled] = useState(job?.enabled ?? true);
+  const [emailRecipients, setEmailRecipients] = useState<string[]>(() => {
+    const recipients = job?.email_recipients || [];
+    // Always ensure default email is included
+    if (!recipients.includes(DEFAULT_EMAIL)) {
+      return [DEFAULT_EMAIL, ...recipients];
+    }
+    return recipients;
+  });
+  const [newEmail, setNewEmail] = useState('');
+  const [emailError, setEmailError] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
+
+  // Update email recipients when job changes
+  useEffect(() => {
+    const recipients = job?.email_recipients || [];
+    // Always ensure default email is included
+    if (!recipients.includes(DEFAULT_EMAIL)) {
+      setEmailRecipients([DEFAULT_EMAIL, ...recipients]);
+    } else {
+      setEmailRecipients(recipients);
+    }
+  }, [job]);
 
   const validateForm = useCallback((): boolean => {
     const nameValidation = validateJobName(name);
@@ -44,6 +67,51 @@ export const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel }) => 
     return true;
   }, [name, promptContent, cronExpression]);
 
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleAddEmail = () => {
+    setEmailError('');
+    const trimmedEmail = newEmail.trim();
+    
+    if (!trimmedEmail) {
+      setEmailError('Please enter an email address');
+      return;
+    }
+    
+    if (!validateEmail(trimmedEmail)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+    
+    if (emailRecipients.includes(trimmedEmail)) {
+      setEmailError('This email is already in the list');
+      return;
+    }
+    
+    setEmailRecipients([...emailRecipients, trimmedEmail]);
+    setNewEmail('');
+    setEmailError('');
+  };
+
+  const handleRemoveEmail = (emailToRemove: string) => {
+    // Prevent removing the default email
+    if (emailToRemove === DEFAULT_EMAIL) {
+      setEmailError('Cannot remove the default email recipient');
+      return;
+    }
+    setEmailRecipients(emailRecipients.filter(email => email !== emailToRemove));
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddEmail();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -55,12 +123,25 @@ export const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel }) => 
     setSubmitting(true);
 
     try {
+      // Ensure default email is always included
+      const recipientsToSave = emailRecipients.includes(DEFAULT_EMAIL) 
+        ? emailRecipients 
+        : [DEFAULT_EMAIL, ...emailRecipients];
+      
+      // Check if email recipients changed
+      const currentRecipients = job?.email_recipients || [];
+      const currentWithDefault = currentRecipients.includes(DEFAULT_EMAIL) 
+        ? currentRecipients 
+        : [DEFAULT_EMAIL, ...currentRecipients];
+      const recipientsChanged = JSON.stringify(recipientsToSave.sort()) !== JSON.stringify(currentWithDefault.sort());
+      
       if (job) {
         await onSubmit({
           name: name !== job.name ? name : undefined,
           prompt_content: promptContent !== job.prompt_content ? promptContent : undefined,
           cron_expression: cronExpression !== job.cron_expression ? cronExpression : undefined,
           enabled: enabled !== job.enabled ? enabled : undefined,
+          email_recipients: recipientsChanged ? recipientsToSave : undefined,
         });
       } else {
         await onSubmit({
@@ -68,6 +149,7 @@ export const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel }) => 
           prompt_content: promptContent.trim(),
           cron_expression: cronExpression.trim(),
           enabled,
+          email_recipients: recipientsToSave,
         });
       }
     } catch (err) {
@@ -131,6 +213,56 @@ export const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel }) => 
           />
           <span>Enabled (job will run on schedule)</span>
         </label>
+      </div>
+
+      <div className="form-group">
+        <label>
+          Email Recipients
+        </label>
+        <div className="email-recipients-container">
+          <div className="email-input-group">
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(e) => {
+                setNewEmail(e.target.value);
+                setEmailError('');
+              }}
+              onKeyPress={handleKeyPress}
+              placeholder="Enter email address"
+              className={emailError ? 'error' : ''}
+            />
+            <button
+              type="button"
+              onClick={handleAddEmail}
+              className="btn-add-email"
+            >
+              Add
+            </button>
+          </div>
+          {emailError && (
+            <div className="email-error">{emailError}</div>
+          )}
+          {emailRecipients.length > 0 && (
+            <div className="email-recipients-list">
+              {emailRecipients.map((email, index) => (
+                <div key={index} className={`email-recipient-item ${email === DEFAULT_EMAIL ? 'default-email' : ''}`}>
+                  <span>{email}</span>
+                  {email === DEFAULT_EMAIL && <span className="default-badge">Default</span>}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveEmail(email)}
+                    className="btn-remove-email"
+                    title={email === DEFAULT_EMAIL ? "Cannot remove default email" : "Remove email"}
+                    disabled={email === DEFAULT_EMAIL}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="form-actions">

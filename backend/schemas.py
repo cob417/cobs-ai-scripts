@@ -4,7 +4,7 @@ Pydantic schemas for API requests and responses
 
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 class JobCreate(BaseModel):
@@ -12,6 +12,7 @@ class JobCreate(BaseModel):
     prompt_content: str
     cron_expression: str
     enabled: bool = True
+    email_recipients: Optional[List[str]] = None
 
 
 class JobUpdate(BaseModel):
@@ -19,6 +20,7 @@ class JobUpdate(BaseModel):
     prompt_content: Optional[str] = None
     cron_expression: Optional[str] = None
     enabled: Optional[bool] = None
+    email_recipients: Optional[List[str]] = None
 
 
 class JobResponse(BaseModel):
@@ -28,6 +30,7 @@ class JobResponse(BaseModel):
     prompt_content: str
     cron_expression: str
     enabled: bool
+    email_recipients: Optional[List[str]] = None
     created_at: datetime
     updated_at: datetime
     is_running: Optional[bool] = False  # Whether job is currently running

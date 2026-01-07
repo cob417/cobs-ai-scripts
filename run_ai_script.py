@@ -8,6 +8,7 @@ Loads prompts from the database, calls OpenAI's API, and saves results to databa
 import os
 import sys
 import argparse
+import json
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -31,11 +32,10 @@ load_dotenv(SCRIPT_DIR / ".env")
 
 # Configuration - all paths relative to script directory
 LOG_DIR = SCRIPT_DIR / "logs"
-EMAIL_RECIPIENT = os.getenv("EMAIL_RECIPIENT")
 
 
-def load_prompt_from_db(job_id: int, logger) -> tuple[str, str]:
-    """Load the prompt from the database."""
+def load_prompt_from_db(job_id: int, logger) -> tuple[str, str, list[str]]:
+    """Load the prompt and email recipients from the database."""
     db = SessionLocal()
     try:
         job = db.query(Job).filter(Job.id == job_id).first()
@@ -43,7 +43,20 @@ def load_prompt_from_db(job_id: int, logger) -> tuple[str, str]:
             logger.error(f"Job {job_id} not found in database.")
             sys.exit(1)
         logger.info(f"Loaded prompt from database for job: {job.name} ({len(job.prompt_content)} characters)")
-        return job.prompt_content, job.name
+        
+        # Parse email recipients from JSON string
+        email_recipients = []
+        if job.email_recipients:
+            try:
+                email_recipients = json.loads(job.email_recipients)
+                if not isinstance(email_recipients, list):
+                    email_recipients = []
+                logger.info(f"Loaded {len(email_recipients)} email recipient(s) from database")
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.warning(f"Failed to parse email recipients from database: {e}")
+                email_recipients = []
+        
+        return job.prompt_content, job.name, email_recipients
     except Exception as e:
         logger.error(f"Error reading prompt from database: {e}", exc_info=True)
         sys.exit(1)
@@ -137,8 +150,8 @@ def main():
     success = False
     
     try:
-        # Load prompt from database
-        prompt, job_name = load_prompt_from_db(job_id, logger)
+        # Load prompt and email recipients from database
+        prompt, job_name, email_recipients = load_prompt_from_db(job_id, logger)
         
         # Initialize OpenAI client
         client = get_openai_client(logger)
@@ -152,11 +165,16 @@ def main():
         # Save results to database
         save_results_to_db(job_id, results, logger)
         
-        # Send email (if recipient is configured)
-        if EMAIL_RECIPIENT:
-            send_email(results, EMAIL_RECIPIENT, prompt_name, logger)
+        # Send email to all recipients (if any are configured)
+        if email_recipients:
+            for recipient in email_recipients:
+                try:
+                    send_email(results, recipient, prompt_name, logger)
+                    logger.info(f"Email sent successfully to: {recipient}")
+                except Exception as e:
+                    logger.error(f"Failed to send email to {recipient}: {e}", exc_info=True)
         else:
-            logger.warning("EMAIL_RECIPIENT not set in .env file. Skipping email.")
+            logger.info("No email recipients configured for this job. Skipping email.")
         
         logger.info("=" * 60)
         logger.info("Script completed successfully!")
@@ -165,8 +183,8 @@ def main():
         # Success - prepare success message
         success = True
         message = f"Job completed successfully!\n\nResults saved to database."
-        if EMAIL_RECIPIENT:
-            message += f"\nEmail sent to: {EMAIL_RECIPIENT}"
+        if email_recipients:
+            message += f"\nEmail sent to: {', '.join(email_recipients)}"
         
     except SystemExit as e:
         # SystemExit from sys.exit() calls - extract error details

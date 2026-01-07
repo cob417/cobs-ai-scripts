@@ -13,7 +13,7 @@ export const validateCronExpression = (cron: string): { valid: boolean; error?: 
   }
 
   // Basic validation - check if fields contain valid characters
-  const cronPattern = /^[\d\*\/\-\,\s]+$/;
+  const cronPattern = /^[\d*/\-, ]+$/;
   for (const part of parts) {
     if (!cronPattern.test(part)) {
       return { valid: false, error: `Invalid characters in cron expression: ${part}` };
