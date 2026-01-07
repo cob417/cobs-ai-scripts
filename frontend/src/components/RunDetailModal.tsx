@@ -143,7 +143,7 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({ runId, onClose }
                     </div>
                   )}
                 </div>
-                <div className={`output-content ${viewMode === 'html' ? 'html-view' : ''}`}>
+                <div className={`output-content ${viewMode === 'html' ? 'html-view' : 'markdown-view'}`}>
                   {viewMode === 'html' && run.html_output_content ? (
                     <div dangerouslySetInnerHTML={{ __html: run.html_output_content }} />
                   ) : viewMode === 'html' && !run.html_output_content && run.output_content ? (
@@ -152,7 +152,7 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({ runId, onClose }
                       <ReactMarkdown>{run.output_content}</ReactMarkdown>
                     </div>
                   ) : viewMode === 'markdown' && run.output_content ? (
-                    <ReactMarkdown>{run.output_content}</ReactMarkdown>
+                    <pre className="markdown-raw">{run.output_content}</pre>
                   ) : run.html_output_content ? (
                     // Fallback: if we have HTML but user selected markdown, show HTML with note
                     <div>
