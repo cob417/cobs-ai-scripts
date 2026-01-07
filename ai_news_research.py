@@ -11,6 +11,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 import smtplib
+import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from openai import OpenAI
@@ -27,6 +28,13 @@ PROMPT_FILE = SCRIPT_DIR / "ai-research-prompt.md"
 OUTPUT_DIR = SCRIPT_DIR / "data"
 LOG_DIR = SCRIPT_DIR / "logs"
 EMAIL_RECIPIENT = os.getenv("EMAIL_RECIPIENT")
+
+# Job name for notifications (configurable via JOB_NAME env var)
+JOB_NAME = os.getenv("JOB_NAME", "AI News Research")
+
+# Pushover configuration
+PUSHOVER_USER_KEY = os.getenv("PUSHOVER_USER_KEY")
+PUSHOVER_APP_TOKEN = os.getenv("PUSHOVER_APP_TOKEN")
 
 # OpenAI model - can be overridden via OPENAI_MODEL environment variable
 # Default to gpt-5.2 with browsing (best for research tasks)
@@ -244,36 +252,107 @@ def send_email(content: str, recipient: str, logger: logging.Logger, subject: st
         logger.warning("Results have been saved to file, but email failed.")
 
 
+def send_pushover_notification(success: bool, job_name: str, message: str, logger: logging.Logger):
+    """Send Pushover notification with success/failure status."""
+    if not PUSHOVER_USER_KEY or not PUSHOVER_APP_TOKEN:
+        logger.warning("Pushover credentials not configured.")
+        logger.warning("Set PUSHOVER_USER_KEY and PUSHOVER_APP_TOKEN in .env file to enable notifications.")
+        return
+    
+    try:
+        # Determine priority and sound based on success/failure
+        if success:
+            priority = 0  # Normal priority
+            title = f"✅ {job_name} - Success"
+            sound = "pushover"  # Default sound
+        else:
+            priority = 1  # High priority (requires acknowledgment)
+            title = f"❌ {job_name} - Failed"
+            sound = "siren"  # Alert sound for failures
+        
+        # Prepare the message
+        payload = {
+            "token": PUSHOVER_APP_TOKEN,
+            "user": PUSHOVER_USER_KEY,
+            "title": title,
+            "message": message,
+            "priority": priority,
+            "sound": sound
+        }
+        
+        logger.info(f"Sending Pushover notification ({'success' if success else 'failure'})...")
+        response = requests.post("https://api.pushover.net/1/messages.json", data=payload, timeout=10)
+        response.raise_for_status()
+        
+        logger.info("Pushover notification sent successfully")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error sending Pushover notification: {e}", exc_info=True)
+        logger.warning("Pushover notification failed, but script execution continues.")
+    except Exception as e:
+        logger.error(f"Unexpected error sending Pushover notification: {e}", exc_info=True)
+        logger.warning("Pushover notification failed, but script execution continues.")
+
+
 def main():
     """Main execution function."""
     # Setup logging first
     logger = setup_logging(LOG_DIR)
     
     logger.info("=" * 60)
-    logger.info("AI News Research Script")
+    logger.info(f"{JOB_NAME} Script")
     logger.info("=" * 60)
     
-    # Load prompt
-    prompt = load_prompt(PROMPT_FILE, logger)
+    error_details = None
+    success = False
     
-    # Initialize OpenAI client
-    client = get_openai_client(logger)
+    try:
+        # Load prompt
+        prompt = load_prompt(PROMPT_FILE, logger)
+        
+        # Initialize OpenAI client
+        client = get_openai_client(logger)
+        
+        # Call OpenAI API
+        results = call_openai(client, prompt, logger)
+        
+        # Save results
+        filepath = save_results(results, OUTPUT_DIR, logger)
+        
+        # Send email (if recipient is configured)
+        if EMAIL_RECIPIENT:
+            send_email(results, EMAIL_RECIPIENT, logger)
+        else:
+            logger.warning("EMAIL_RECIPIENT not set in .env file. Skipping email.")
+        
+        logger.info("=" * 60)
+        logger.info("Script completed successfully!")
+        logger.info("=" * 60)
+        
+        # Success - prepare success message
+        success = True
+        message = f"Job completed successfully!\n\nResults saved to: {Path(filepath).name}"
+        if EMAIL_RECIPIENT:
+            message += f"\nEmail sent to: {EMAIL_RECIPIENT}"
+        
+    except SystemExit as e:
+        # SystemExit from sys.exit() calls - extract error details
+        error_details = "Script exited with an error. Check logs for details."
+        logger.error("Script execution failed")
+        message = f"Job failed to complete.\n\nError: {error_details}\n\nPlease check the log file for detailed error information."
+        
+    except Exception as e:
+        # Unexpected exception
+        error_details = str(e)
+        logger.error(f"Unexpected error in main execution: {e}", exc_info=True)
+        message = f"Job failed with an unexpected error.\n\nError: {error_details}\n\nPlease check the log file for detailed error information."
     
-    # Call OpenAI API
-    results = call_openai(client, prompt, logger)
-    
-    # Save results
-    filepath = save_results(results, OUTPUT_DIR, logger)
-    
-    # Send email (if recipient is configured)
-    if EMAIL_RECIPIENT:
-        send_email(results, EMAIL_RECIPIENT, logger)
-    else:
-        logger.warning("EMAIL_RECIPIENT not set in .env file. Skipping email.")
-    
-    logger.info("=" * 60)
-    logger.info("Script completed successfully!")
-    logger.info("=" * 60)
+    finally:
+        # Always send Pushover notification
+        send_pushover_notification(success, JOB_NAME, message, logger)
+        
+        # If there was an error, exit with error code
+        if not success:
+            sys.exit(1)
 
 
 if __name__ == "__main__":
