@@ -29,7 +29,28 @@ def call_openai(client: OpenAI, prompt: str, logger: logging.Logger, model: str 
     if enable_web_search is None:
         enable_web_search = os.getenv("WEB_SEARCH", "true").lower() == "true"
     
-    logger.info(f"Calling OpenAI API with model: {model}...")
+    # Inject markdown formatting instructions into every prompt
+    markdown_instructions = """
+
+---
+
+**IMPORTANT FORMATTING REQUIREMENTS:**
+
+Your response MUST be formatted in strict, well-formed Markdown. Please:
+- Use proper Markdown syntax for all headings (# ## ###), lists (- or *), links, code blocks, etc.
+- Ensure proper spacing around headings (blank line before and after)
+- Use consistent list formatting
+- Double-check your Markdown formatting before submitting your response
+- Verify all links are properly formatted as [text](url)
+- Ensure code blocks use triple backticks with language identifiers when appropriate
+
+Your output will be saved as a Markdown file, so formatting quality is critical.
+"""
+    
+    # Append markdown instructions to the prompt
+    enhanced_prompt = prompt + markdown_instructions
+    
+    logger.info(f"Calling OpenAI API with model: {model} (with markdown formatting instructions)...")
     
     try:
         # Use Responses API (same as ChatGPT UI) with web search tool if enabled
@@ -37,7 +58,7 @@ def call_openai(client: OpenAI, prompt: str, logger: logging.Logger, model: str 
             logger.info("Using Responses API with web browsing enabled...")
             response = client.responses.create(
                 model=model,
-                input=prompt,
+                input=enhanced_prompt,
                 tools=[{"type": "web_search"}],  # Enable web browsing (same as ChatGPT UI)
                 include=["web_search_call.action.sources"],  # Optional: return sources
             )
@@ -53,7 +74,7 @@ def call_openai(client: OpenAI, prompt: str, logger: logging.Logger, model: str 
                 messages=[
                     {
                         "role": "user",
-                        "content": prompt
+                        "content": enhanced_prompt
                     }
                 ],
             )
@@ -72,7 +93,7 @@ def call_openai(client: OpenAI, prompt: str, logger: logging.Logger, model: str 
                 messages=[
                     {
                         "role": "user",
-                        "content": prompt
+                        "content": enhanced_prompt
                     }
                 ],
             )
@@ -108,7 +129,7 @@ def call_openai(client: OpenAI, prompt: str, logger: logging.Logger, model: str 
             try:
                 response = client.chat.completions.create(
                     model=model,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[{"role": "user", "content": enhanced_prompt}],
                 )
                 result = response.choices[0].message.content
                 logger.info(f"Fallback API call completed successfully ({len(result)} characters returned)")

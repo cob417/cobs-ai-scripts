@@ -58,7 +58,7 @@ def save_results(content: str, output_dir: Path, prompt_name: str, logger) -> st
     filename = f"{ts}.md"
     filepath = output_dir / filename
     
-    # Save to file
+    # Save to file (content is already formatted as markdown by OpenAI)
     logger.info(f"Saving results to {filename}...")
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)

@@ -1,5 +1,5 @@
 """
-Email utilities for AI Research Script
+Email utilities for Run AI Script
 """
 
 import os
@@ -8,10 +8,11 @@ import logging
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from .markdown_utils import markdown_to_html
 
 
 def send_email(content: str, recipient: str, prompt_name: str, logger: logging.Logger, subject: str = None):
-    """Send email with the research results."""
+    """Send email with the research results formatted as HTML for email clients."""
     if subject is None:
         today = datetime.now().strftime("%Y-%m-%d")
         subject = f"{prompt_name} - {today}"
@@ -29,17 +30,28 @@ def send_email(content: str, recipient: str, prompt_name: str, logger: logging.L
         return
     
     try:
+        # Convert markdown content to HTML for email
+        html_content = markdown_to_html(content)
+        logger.info(f"Converted markdown to HTML ({len(html_content)} characters, includes inline styles)")
+        
         # Create message
-        msg = MIMEMultipart()
+        msg = MIMEMultipart('alternative')
         msg['From'] = email_user
         msg['To'] = recipient
         msg['Subject'] = subject
         
-        # Add body
-        msg.attach(MIMEText(content, 'plain'))
+        # Create plain text version (fallback for email clients that don't support HTML)
+        text_content = content
+        
+        # Attach both plain text and HTML versions
+        # Note: Order matters - plain text first, then HTML (email clients prefer the last part)
+        part1 = MIMEText(text_content, 'plain')
+        part2 = MIMEText(html_content, 'html')
+        msg.attach(part1)
+        msg.attach(part2)
         
         # Send email
-        logger.info(f"Sending email to {recipient}...")
+        logger.info(f"Sending HTML formatted email to {recipient} (with inline styles for email client compatibility)...")
         with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls()
             server.login(email_user, email_password)
