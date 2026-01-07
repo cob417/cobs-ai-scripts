@@ -1,0 +1,70 @@
+# Git
+.git
+.gitignore
+
+# Environment files (secrets)
+.env
+.env.*
+*.env
+
+# Database files (mounted as volumes)
+*.db
+backend/scheduler.db
+
+# Node modules (frontend is pre-built)
+frontend/node_modules/
+node_modules/
+
+# Frontend source (only need the build in backend/static)
+frontend/src/
+frontend/public/
+frontend/package*.json
+frontend/tsconfig.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (not needed in container)
+*.md
+!prompts/*.md
+
+# Test files
+tests/
+test/
+*.test.py
+*_test.py
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Data directory (mounted as volume)
+data/
+
+# Cursor/editor plans
+.cursor/
