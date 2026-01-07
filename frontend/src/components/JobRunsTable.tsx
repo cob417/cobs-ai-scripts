@@ -54,13 +54,13 @@ export const JobRunsTable: React.FC<JobRunsTableProps> = ({ runs, onView }) => {
         <tbody>
           {runs.map((run) => (
             <tr key={run.id}>
-              <td>{run.job_name}</td>
-              <td>{getStatusBadge(run.status)}</td>
-              <td>
+              <td data-label="Job Name">{run.job_name}</td>
+              <td data-label="Status">{getStatusBadge(run.status)}</td>
+              <td data-label="Started">
                 {format(new Date(run.started_at), 'MMM d, yyyy HH:mm:ss')}
               </td>
-              <td>{getDuration(run)}</td>
-              <td>
+              <td data-label="Duration">{getDuration(run)}</td>
+              <td data-label="Actions">
                 <button onClick={() => onView(run.id)} className="btn-view">
                   View Details
                 </button>

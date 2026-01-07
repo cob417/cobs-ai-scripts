@@ -2,7 +2,7 @@
  * Job creation/editing form
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Job, JobCreate, JobUpdate } from '../services/api';
 import { CronInput } from './CronInput';
 import { validateJobName, validatePromptContent, validateCronExpression } from '../utils/validation';
@@ -16,7 +16,8 @@ interface JobFormProps {
 
 const DEFAULT_EMAIL = 'christopher.j.obrien@gmail.com';
 
-export const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel }) => {
+const JobFormComponent: React.FC<JobFormProps> = ({ job, onSubmit, onCancel }) => {
+  // Initialize state directly from job prop (only runs on mount)
   const [name, setName] = useState(job?.name || '');
   const [promptContent, setPromptContent] = useState(job?.prompt_content || '');
   const [cronExpression, setCronExpression] = useState(job?.cron_expression || '0 9 * * *');
@@ -33,17 +34,9 @@ export const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel }) => 
   const [emailError, setEmailError] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
-
-  // Update email recipients when job changes
-  useEffect(() => {
-    const recipients = job?.email_recipients || [];
-    // Always ensure default email is included
-    if (!recipients.includes(DEFAULT_EMAIL)) {
-      setEmailRecipients([DEFAULT_EMAIL, ...recipients]);
-    } else {
-      setEmailRecipients(recipients);
-    }
-  }, [job]);
+  // Note: Form state is initialized from job prop on mount.
+  // The component is memoized (see bottom) to prevent re-renders when parent re-renders.
+  // This preserves form state and scroll position naturally.
 
   const validateForm = useCallback((): boolean => {
     const nameValidation = validateJobName(name);
@@ -276,3 +269,11 @@ export const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, onCancel }) => 
     </form>
   );
 };
+
+// Memoize to prevent re-renders when parent re-renders with same job
+export const JobForm = React.memo(JobFormComponent, (prevProps, nextProps) => {
+  // Re-render only if job ID actually changes
+  const prevJobId = prevProps.job?.id;
+  const nextJobId = nextProps.job?.id;
+  return prevJobId === nextJobId;
+});

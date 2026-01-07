@@ -2,7 +2,7 @@
  * Main App component
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Job, JobCreate, JobUpdate } from './services/api';
 import { JobList } from './components/JobList';
 import { JobForm } from './components/JobForm';
@@ -22,9 +22,14 @@ function App() {
   const { status } = useStatus();
   
   const [showForm, setShowForm] = useState(false);
-  const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [editingJobId, setEditingJobId] = useState<number | null>(null);
   const [selectedRun, setSelectedRun] = useState<number | null>(null);
   const [runningJobs, setRunningJobs] = useState<Set<number>>(new Set());
+
+  // Get the current job from the jobs array to avoid stale references
+  const editingJob = useMemo(() => {
+    return editingJobId ? jobs.find(job => job.id === editingJobId) || null : null;
+  }, [editingJobId, jobs]);
 
   const handleCreateJob = useCallback(async (data: JobCreate | JobUpdate) => {
     await create(data as JobCreate);
@@ -32,11 +37,11 @@ function App() {
   }, [create]);
 
   const handleUpdateJob = useCallback(async (data: JobCreate | JobUpdate) => {
-    if (!editingJob) return;
-    await update(editingJob.id, data as JobUpdate);
-    setEditingJob(null);
+    if (!editingJobId) return;
+    await update(editingJobId, data as JobUpdate);
+    setEditingJobId(null);
     setShowForm(false);
-  }, [editingJob, update]);
+  }, [editingJobId, update]);
 
   const handleDeleteJob = useCallback(async (job: Job) => {
     if (window.confirm(`Are you sure you want to delete "${job.name}"?`)) {
@@ -92,18 +97,18 @@ function App() {
   }, [run]);
 
   const handleEditJob = useCallback((job: Job) => {
-    setEditingJob(job);
+    setEditingJobId(job.id);
     setShowForm(true);
   }, []);
 
   const handleNewJob = useCallback(() => {
-    setEditingJob(null);
+    setEditingJobId(null);
     setShowForm(true);
   }, []);
 
   const handleCloseForm = useCallback(() => {
     setShowForm(false);
-    setEditingJob(null);
+    setEditingJobId(null);
   }, []);
 
   const loading = jobsLoading || runsLoading;
@@ -121,7 +126,7 @@ function App() {
       <div className="app">
         <header className="app-header">
           <div className="header-brand">
-            <img src="/static/logo.png" alt="Cob's AI Scripts" className="header-logo" />
+            <img src="/static/ai128.png" alt="Cob's AI Scripts" className="header-logo" />
             <h1>Cob's AI Scripts</h1>
           </div>
           {status && (

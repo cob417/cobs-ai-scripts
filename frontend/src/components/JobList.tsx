@@ -48,11 +48,11 @@ export const JobList: React.FC<JobListProps> = ({
             const isRunning = runningJobs.has(job.id);
             return (
             <tr key={job.id} className={!job.enabled ? 'disabled' : ''}>
-              <td>{job.name}</td>
-              <td>
+              <td data-label="Name">{job.name}</td>
+              <td data-label="Schedule">
                 <code>{job.cron_expression}</code>
               </td>
-              <td>
+              <td data-label="Status">
                 {isRunning ? (
                   <span className="status-badge status-running">
                     Running
@@ -63,8 +63,8 @@ export const JobList: React.FC<JobListProps> = ({
                   </span>
                 )}
               </td>
-              <td>{format(new Date(job.created_at), 'MMM d, yyyy')}</td>
-              <td>
+              <td data-label="Created">{format(new Date(job.created_at), 'MMM d, yyyy')}</td>
+              <td data-label="Actions">
                 <div className="action-buttons">
                   <button 
                     onClick={() => onRun(job)} 

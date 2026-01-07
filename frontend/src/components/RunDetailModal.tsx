@@ -124,21 +124,19 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({ runId, onClose }
           <div className="tabs">
             <div className="tab-content">
               <div className="tab-pane active">
-                <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <h3 style={{ margin: 0, flex: 1 }}>Output</h3>
+                <div className="output-header">
+                  <h3>Output</h3>
                   {run.html_output_content && run.output_content && (
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div className="view-mode-toggle">
                       <button
                         onClick={() => setViewMode('html')}
-                        className={viewMode === 'html' ? 'btn-active' : ''}
-                        style={{ padding: '0.5rem 1rem', border: '1px solid #ddd', background: viewMode === 'html' ? '#3498db' : 'white', color: viewMode === 'html' ? 'white' : '#333', cursor: 'pointer', borderRadius: '4px' }}
+                        className={`view-mode-btn ${viewMode === 'html' ? 'active' : ''}`}
                       >
                         HTML
                       </button>
                       <button
                         onClick={() => setViewMode('markdown')}
-                        className={viewMode === 'markdown' ? 'btn-active' : ''}
-                        style={{ padding: '0.5rem 1rem', border: '1px solid #ddd', background: viewMode === 'markdown' ? '#3498db' : 'white', color: viewMode === 'markdown' ? 'white' : '#333', cursor: 'pointer', borderRadius: '4px' }}
+                        className={`view-mode-btn ${viewMode === 'markdown' ? 'active' : ''}`}
                       >
                         Markdown
                       </button>

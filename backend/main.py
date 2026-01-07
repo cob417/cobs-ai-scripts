@@ -434,6 +434,26 @@ try:
     static_path = Path(__file__).parent / "static"
     if static_path.exists():
         app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+        
+        # Serve favicon from root path (browsers request /favicon.ico by default)
+        @app.get("/favicon.ico")
+        async def favicon_ico():
+            favicon_path = static_path / "favicon.ico"
+            if favicon_path.exists():
+                return FileResponse(str(favicon_path), media_type="image/x-icon")
+            # Fallback to PNG if ICO doesn't exist
+            favicon_png = static_path / "favicon.png"
+            if favicon_png.exists():
+                return FileResponse(str(favicon_png), media_type="image/png")
+            raise HTTPException(status_code=404, detail="Favicon not found")
+        
+        @app.get("/favicon.png")
+        async def favicon_png():
+            favicon_path = static_path / "favicon.png"
+            if favicon_path.exists():
+                return FileResponse(str(favicon_path), media_type="image/png")
+            raise HTTPException(status_code=404, detail="Favicon not found")
+        
         # Serve index.html at root
         @app.get("/")
         async def read_root():

@@ -2,7 +2,7 @@
  * Custom hook for managing jobs
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Job, JobCreate, JobUpdate, getJobs, createJob, updateJob, deleteJob, runJob } from '../services/api';
 import { useErrorHandler } from './useErrorHandler';
 
@@ -11,10 +11,15 @@ export const useJobs = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const handleError = useErrorHandler();
+  const isInitialLoadRef = useRef(true);
 
   const loadJobs = useCallback(async () => {
     try {
-      setLoading(true);
+      // Only set loading on initial load, not on manual refreshes
+      // This prevents the UI from unmounting/remounting and resetting scroll position
+      if (isInitialLoadRef.current) {
+        setLoading(true);
+      }
       setError(null);
       const data = await getJobs();
       setJobs(data);
@@ -23,6 +28,7 @@ export const useJobs = () => {
       setError(errorMessage);
     } finally {
       setLoading(false);
+      isInitialLoadRef.current = false;
     }
   }, [handleError]);
 
