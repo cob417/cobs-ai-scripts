@@ -184,12 +184,8 @@ async def create_job(job_data: JobCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(job)
     
-    # Create prompt file
-    prompt_file = SCRIPT_DIR / "prompts" / job.prompt_filename
-    prompt_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(prompt_file, 'w', encoding='utf-8') as f:
-        f.write(job.prompt_content)
-    logger.info(f"Created prompt file: {prompt_file}")
+    # Prompt is stored in database, no file system operation needed
+    logger.info(f"Created job {job.id} with prompt stored in database")
     
     # Add to scheduler if enabled
     if job.enabled:
@@ -246,13 +242,9 @@ async def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get
     db.commit()
     db.refresh(job)
     
-    # Update prompt file if content changed
+    # Prompt is stored in database, no file system operation needed
     if job_data.prompt_content is not None:
-        prompt_file = SCRIPT_DIR / "prompts" / job.prompt_filename
-        prompt_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(prompt_file, 'w', encoding='utf-8') as f:
-            f.write(job.prompt_content)
-        logger.info(f"Updated prompt file: {prompt_file}")
+        logger.info(f"Updated prompt content in database for job {job.id}")
     
     # Update scheduler
     update_job_in_scheduler(job, db)

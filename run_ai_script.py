@@ -2,7 +2,7 @@
 """
 Run AI Script - Generic AI Script Runner
 A modular script runner that executes any OpenAI prompt-based script.
-Loads prompts from the prompts/ directory, calls OpenAI's API, and saves/emails results.
+Loads prompts from the database, calls OpenAI's API, and saves results to database.
 """
 
 import os
@@ -18,6 +18,11 @@ from utils.email_utils import send_email
 from utils.pushover_utils import send_pushover_notification
 from utils.openai_utils import get_openai_client, call_openai
 
+# Database imports
+sys.path.insert(0, str(Path(__file__).parent / "backend"))
+from database import SessionLocal, Job, JobRun
+from utils.markdown_utils import markdown_to_html
+
 # Get the directory where this script is located
 SCRIPT_DIR = Path(__file__).parent.absolute()
 
@@ -25,128 +30,115 @@ SCRIPT_DIR = Path(__file__).parent.absolute()
 load_dotenv(SCRIPT_DIR / ".env")
 
 # Configuration - all paths relative to script directory
-PROMPTS_DIR = SCRIPT_DIR / "prompts"
-DEFAULT_PROMPT_FILE = PROMPTS_DIR / "ai-research-prompt.md"
-OUTPUT_DIR = SCRIPT_DIR / "data"
 LOG_DIR = SCRIPT_DIR / "logs"
 EMAIL_RECIPIENT = os.getenv("EMAIL_RECIPIENT")
 
 
-def load_prompt(prompt_file: Path, logger) -> str:
-    """Load the prompt from the markdown file."""
+def load_prompt_from_db(job_id: int, logger) -> tuple[str, str]:
+    """Load the prompt from the database."""
+    db = SessionLocal()
     try:
-        logger.info(f"Loading prompt from {prompt_file.name}...")
-        with open(prompt_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        logger.info(f"Prompt loaded successfully ({len(content)} characters)")
-        return content
-    except FileNotFoundError:
-        logger.error(f"Prompt file '{prompt_file}' not found.")
-        sys.exit(1)
+        job = db.query(Job).filter(Job.id == job_id).first()
+        if not job:
+            logger.error(f"Job {job_id} not found in database.")
+            sys.exit(1)
+        logger.info(f"Loaded prompt from database for job: {job.name} ({len(job.prompt_content)} characters)")
+        return job.prompt_content, job.name
     except Exception as e:
-        logger.error(f"Error reading prompt file: {e}", exc_info=True)
+        logger.error(f"Error reading prompt from database: {e}", exc_info=True)
         sys.exit(1)
+    finally:
+        db.close()
 
 
-def save_results(content: str, output_dir: Path, prompt_name: str, logger) -> str:
-    """Save results to a dated file in the output directory."""
-    # Create output directory if it doesn't exist
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Generate filename with current date and time (hours, minutes, seconds)
-    ts = datetime.now().strftime(f"%Y-%m-%d {prompt_name} %H%M%S")
-    filename = f"{ts}.md"
-    filepath = output_dir / filename
-    
-    # Save to file (content is already formatted as markdown by OpenAI)
-    logger.info(f"Saving results to {filename}...")
-    with open(filepath, 'w', encoding='utf-8') as f:
-        f.write(content)
-    
-    logger.info(f"Results saved successfully to: {filepath}")
-    return str(filepath)
-
-
-def get_prompt_name(prompt_file: Path) -> str:
-    """Extract prompt name from file (filename without extension)."""
-    return prompt_file.stem
+def save_results_to_db(job_id: int, content: str, logger) -> None:
+    """Save results to the database in the job_run record."""
+    db = SessionLocal()
+    try:
+        # Find the most recent running job run for this job
+        job_run = db.query(JobRun).filter(
+            JobRun.job_id == job_id,
+            JobRun.status == "running",
+            JobRun.completed_at.is_(None)
+        ).order_by(JobRun.started_at.desc()).first()
+        
+        if not job_run:
+            logger.warning("No running job run found to save results to")
+            return
+        
+        # Convert markdown to HTML
+        html_content = None
+        try:
+            html_content = markdown_to_html(content)
+            logger.info(f"Converted markdown to HTML ({len(html_content)} characters)")
+        except Exception as e:
+            logger.warning(f"Failed to convert markdown to HTML: {e}")
+        
+        # Update the job run with output
+        job_run.output_content = content
+        job_run.html_output_content = html_content
+        db.commit()
+        
+        logger.info(f"Results saved successfully to database (job_run_id: {job_run.id})")
+    except Exception as e:
+        logger.error(f"Error saving results to database: {e}", exc_info=True)
+        db.rollback()
+    finally:
+        db.close()
 
 
 def parse_arguments():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Run AI Script - Execute OpenAI prompt-based scripts with customizable prompts",
+        description="Run AI Script - Execute OpenAI prompt-based scripts from database",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""
+        epilog="""
 Examples:
-  %(prog)s                                    # Use default prompt: {DEFAULT_PROMPT_FILE.name}
-  %(prog)s -p my-custom-prompt.md            # Use custom prompt from prompts/ directory
-  %(prog)s --prompt prompts/my-prompt.md     # Use full path to prompt file
+  %(prog)s --job-id 1                        # Run job with ID 1 from database
         """
     )
     parser.add_argument(
-        "-p", "--prompt",
-        type=str,
-        default=None,
-        help=f"Prompt file to use (default: {DEFAULT_PROMPT_FILE.name}). "
-             f"Can be a filename in the prompts/ directory or a full path."
+        "--job-id",
+        type=int,
+        required=True,
+        help="Job ID from database to execute"
     )
     return parser.parse_args()
-
-
-def resolve_prompt_file(prompt_arg: str = None) -> Path:
-    """Resolve the prompt file path from command-line argument or use default."""
-    if prompt_arg is None:
-        # Use default prompt file
-        prompt_file = DEFAULT_PROMPT_FILE
-    else:
-        # Check if it's a full path
-        if os.path.isabs(prompt_arg) or "/" in prompt_arg or "\\" in prompt_arg:
-            prompt_file = Path(prompt_arg)
-        else:
-            # Assume it's a filename in the prompts directory
-            prompt_file = PROMPTS_DIR / prompt_arg
-    
-    # Validate that the file exists
-    if not prompt_file.exists():
-        print(f"Error: Prompt file not found: {prompt_file}", file=sys.stderr)
-        print(f"Available prompts in {PROMPTS_DIR}:", file=sys.stderr)
-        if PROMPTS_DIR.exists():
-            for p in sorted(PROMPTS_DIR.glob("*.md")):
-                print(f"  - {p.name}", file=sys.stderr)
-        sys.exit(1)
-    
-    return prompt_file
 
 
 def main():
     """Main execution function."""
     # Parse command-line arguments
     args = parse_arguments()
+    job_id = args.job_id
     
-    # Resolve prompt file
-    prompt_file = resolve_prompt_file(args.prompt)
+    # Load job and prompt from database
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        if not job:
+            print(f"Error: Job {job_id} not found in database.", file=sys.stderr)
+            sys.exit(1)
+        
+        job_name = job.name
+        prompt_name = job.prompt_filename.replace('.md', '')
+    finally:
+        db.close()
     
-    # Extract prompt name from file (without extension)
-    prompt_name = get_prompt_name(prompt_file)
-    
-    # Job name for notifications (use prompt name, configurable via JOB_NAME env var)
-    job_name = os.getenv("JOB_NAME", prompt_name)
-    
-    # Setup logging first (needs prompt_name)
+    # Setup logging
     logger = setup_logging(LOG_DIR, prompt_name)
     
     logger.info("=" * 60)
     logger.info(f"{job_name} Script")
-    logger.info(f"Using prompt file: {prompt_file.name}")
+    logger.info(f"Job ID: {job_id}")
     logger.info("=" * 60)
     
     error_details = None
     success = False
     
     try:
-        # Load prompt
-        prompt = load_prompt(prompt_file, logger)
+        # Load prompt from database
+        prompt, job_name = load_prompt_from_db(job_id, logger)
         
         # Initialize OpenAI client
         client = get_openai_client(logger)
@@ -157,8 +149,8 @@ def main():
         enable_web_search = os.getenv("WEB_SEARCH", "true").lower() == "true"
         results = call_openai(client, prompt, logger, model=openai_model, enable_web_search=enable_web_search)
         
-        # Save results
-        filepath = save_results(results, OUTPUT_DIR, prompt_name, logger)
+        # Save results to database
+        save_results_to_db(job_id, results, logger)
         
         # Send email (if recipient is configured)
         if EMAIL_RECIPIENT:
@@ -172,7 +164,7 @@ def main():
         
         # Success - prepare success message
         success = True
-        message = f"Job completed successfully!\n\nResults saved to: {Path(filepath).name}"
+        message = f"Job completed successfully!\n\nResults saved to database."
         if EMAIL_RECIPIENT:
             message += f"\nEmail sent to: {EMAIL_RECIPIENT}"
         

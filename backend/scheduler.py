@@ -48,17 +48,9 @@ def execute_job(job_id: int):
         logger.info(f"Starting execution of job {job_id} ({job.name})")
         
         try:
-            # Ensure prompt file exists
-            prompt_file = SCRIPT_DIR / "prompts" / job.prompt_filename
-            prompt_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Write prompt content to file
-            with open(prompt_file, 'w', encoding='utf-8') as f:
-                f.write(job.prompt_content)
-            
-            # Execute the script
+            # Execute the script with job_id (no file system operations needed)
             result = subprocess.run(
-                [sys.executable, str(RUN_SCRIPT), "-p", job.prompt_filename],
+                [sys.executable, str(RUN_SCRIPT), "--job-id", str(job_id)],
                 capture_output=True,
                 text=True,
                 cwd=str(SCRIPT_DIR),
@@ -68,63 +60,36 @@ def execute_job(job_id: int):
             # Capture logs (stdout contains log messages)
             log_content = result.stderr + "\n" + result.stdout
             
-            # Read the actual output file that was created
-            # Files are saved as: YYYY-MM-DD {prompt_name} HHMMSS.md
+            # Read output from database (script saves it there)
             output_content = None
             html_output_content = None
             
             if result.returncode == 0:
-                # Find the most recently created output file for this prompt
-                prompt_name = job.prompt_filename.replace('.md', '')
-                data_dir = SCRIPT_DIR / "data"
+                # Refresh job_run to get the output that was saved by the script
+                db.refresh(job_run)
+                output_content = job_run.output_content
+                html_output_content = job_run.html_output_content
                 
-                if data_dir.exists():
-                    # Find files matching the pattern for this prompt
-                    # Pattern: YYYY-MM-DD {prompt_name} HHMMSS.md
-                    pattern = f"* {prompt_name} *.md"
-                    matching_files = list(data_dir.glob(pattern))
-                    
-                    if matching_files:
-                        # Get the most recently modified file
-                        latest_file = max(matching_files, key=lambda p: p.stat().st_mtime)
-                        
-                        # Check if file was created after job started (within 10 minutes to be safe)
-                        file_time = latest_file.stat().st_mtime
-                        job_start_time = job_run.started_at.timestamp()
-                        
-                        # Use file if it was created after job start (or within 10 minutes before, to handle clock skew)
-                        if file_time >= job_start_time - 600:  # File created within 10 minutes of job start
-                            try:
-                                with open(latest_file, 'r', encoding='utf-8') as f:
-                                    output_content = f.read()
-                                logger.info(f"Read markdown output from file: {latest_file.name} ({len(output_content)} characters)")
-                                
-                                # Convert markdown output to HTML
-                                if output_content:
-                                    try:
-                                        html_output_content = markdown_to_html(output_content)
-                                        logger.info(f"Converted markdown to HTML ({len(html_output_content)} characters)")
-                                    except Exception as e:
-                                        logger.warning(f"Failed to convert output to HTML: {e}")
-                            except Exception as e:
-                                logger.warning(f"Failed to read output file {latest_file}: {e}")
-                        else:
-                            logger.warning(f"Output file {latest_file.name} was created too long before job start (file: {file_time}, job: {job_start_time})")
-                    
-                    if not output_content:
-                        logger.warning("Could not find matching output file, using stdout as fallback")
-                        output_content = result.stdout
+                if output_content:
+                    logger.info(f"Retrieved output from database ({len(output_content)} characters)")
                 else:
-                    logger.warning("Data directory does not exist, using stdout as fallback")
+                    logger.warning("No output content found in database, using stdout as fallback")
                     output_content = result.stdout
             else:
                 # On failure, use stdout as output
                 output_content = result.stdout
             
-            # Update job run
+            # Update job run (output_content and html_output_content already saved by script)
             job_run.status = "success" if result.returncode == 0 else "failed"
-            job_run.output_content = output_content
-            job_run.html_output_content = html_output_content
+            # Only update output if script didn't save it (for error cases)
+            if not job_run.output_content:
+                job_run.output_content = output_content
+            if not job_run.html_output_content and output_content:
+                # Try to convert if HTML wasn't saved
+                try:
+                    job_run.html_output_content = markdown_to_html(output_content)
+                except Exception as e:
+                    logger.warning(f"Failed to convert output to HTML: {e}")
             job_run.log_content = log_content
             job_run.completed_at = datetime.utcnow()
             
