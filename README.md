@@ -1,6 +1,6 @@
-# AI News Research Script
+# Run AI Script
 
-This script calls OpenAI's latest agentic chat completion model to generate AI news research based on the prompt in `ai-research-prompt.md`, saves the results to a dated file, and emails them.
+A generic, modular script runner that executes any OpenAI prompt-based script. Loads prompts from the `prompts/` directory, calls OpenAI's API with web browsing support, and saves/emails the results.
 
 ## Setup
 
@@ -63,16 +63,22 @@ source venv/bin/activate
 
 Run the script:
 ```bash
-python ai_news_research.py
+python run_ai_script.py
+```
+
+Or with a custom prompt:
+```bash
+python run_ai_script.py -p my-custom-prompt.md
 ```
 
 The script will:
-1. Load the prompt from `ai-research-prompt.md`
-2. Call OpenAI's agentic model (o1-preview)
-3. Save results to `data/YYYY-MM-DD AI News Research.md`
-4. Email the results to christopher.j.obrien@gmail.com
+1. Load the prompt from the `prompts/` directory (default: `ai-research-prompt.md`)
+2. Call OpenAI's API with web browsing support (default: gpt-5.2)
+3. Save results to `data/YYYY-MM-DD [prompt-name].md`
+4. Email the results (if EMAIL_RECIPIENT is configured)
 
 ## Output
 
-Results are saved in the `data/` directory with filenames like:
-- `2024-01-15 AI News Research.md`
+Results are saved in the `data/` directory with filenames based on the prompt name:
+- `2024-01-15 ai-research-prompt.md`
+- `2024-01-15 my-custom-prompt.md`

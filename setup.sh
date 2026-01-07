@@ -1,10 +1,10 @@
 #!/bin/bash
-# Setup script for AI News Research
+# Setup script for Run AI Script
 
 set -e  # Exit on error
 
 echo "=========================================="
-echo "AI News Research - Setup Script"
+echo "Run AI Script - Setup Script"
 echo "=========================================="
 echo ""
 
@@ -48,5 +48,8 @@ echo "     cp .env.example .env"
 echo "     # Then edit .env with your credentials"
 echo ""
 echo "  3. Run the script:"
-echo "     python ai_news_research.py"
+echo "     python run_ai_script.py"
+echo ""
+echo "     Or with a custom prompt:"
+echo "     python run_ai_script.py -p my-prompt.md"
 echo ""
