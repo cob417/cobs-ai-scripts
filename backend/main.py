@@ -433,7 +433,14 @@ async def get_job_run(run_id: int, db: Session = Depends(get_db)):
 try:
     static_path = Path(__file__).parent / "static"
     if static_path.exists():
-        app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+        # React build creates assets in a nested 'static' subfolder
+        # Mount the inner static folder at /static to serve JS/CSS correctly
+        inner_static = static_path / "static"
+        if inner_static.exists():
+            app.mount("/static", StaticFiles(directory=str(inner_static)), name="static")
+        else:
+            # Fallback for legacy structure
+            app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
         
         # Serve favicon from root path (browsers request /favicon.ico by default)
         @app.get("/favicon.ico")

@@ -144,23 +144,31 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({ runId, onClose }
                   )}
                 </div>
                 <div className={`output-content ${viewMode === 'html' ? 'html-view' : 'markdown-view'}`}>
-                  {viewMode === 'html' && run.html_output_content ? (
-                    <div dangerouslySetInnerHTML={{ __html: run.html_output_content }} />
-                  ) : viewMode === 'html' && !run.html_output_content && run.output_content ? (
-                    <div>
-                      <p style={{ color: '#666', fontStyle: 'italic', marginBottom: '1rem' }}>HTML version not available. Showing markdown:</p>
-                      <ReactMarkdown>{run.output_content}</ReactMarkdown>
-                    </div>
-                  ) : viewMode === 'markdown' && run.output_content ? (
-                    <pre className="markdown-raw">{run.output_content}</pre>
-                  ) : run.html_output_content ? (
-                    // Fallback: if we have HTML but user selected markdown, show HTML with note
-                    <div>
-                      <p style={{ color: '#666', fontStyle: 'italic', marginBottom: '1rem' }}>Markdown not available. Showing HTML:</p>
+                  {viewMode === 'html' ? (
+                    // HTML view - show rendered HTML
+                    run.html_output_content ? (
                       <div dangerouslySetInnerHTML={{ __html: run.html_output_content }} />
-                    </div>
+                    ) : run.output_content ? (
+                      <div>
+                        <p style={{ color: '#666', fontStyle: 'italic', marginBottom: '1rem' }}>HTML version not available. Showing rendered markdown:</p>
+                        <ReactMarkdown>{run.output_content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="no-content">No output available</p>
+                    )
                   ) : (
-                    <p className="no-content">No output available</p>
+                    // Markdown view - show raw markdown text for copying
+                    run.output_content ? (
+                      <pre className="markdown-raw">{run.output_content}</pre>
+                    ) : run.html_output_content ? (
+                      <div>
+                        <p style={{ color: '#cc0000', fontStyle: 'italic', marginBottom: '1rem', fontWeight: 'bold' }}>⚠️ Raw markdown not available. Only HTML version exists.</p>
+                        <p style={{ color: '#666', fontStyle: 'italic', marginBottom: '1rem' }}>Showing HTML content below:</p>
+                        <div dangerouslySetInnerHTML={{ __html: run.html_output_content }} />
+                      </div>
+                    ) : (
+                      <p className="no-content">No output available</p>
+                    )
                   )}
                 </div>
               </div>
