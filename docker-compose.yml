@@ -10,13 +10,15 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Persistent database
-      - ./backend/scheduler.db:/app/backend/scheduler.db
+      # Persistent database directory
+      - ./db:/app/db
       # Job output data
       - ./data:/app/data
       # Prompt files (optional - can be managed via UI)
       - ./prompts:/app/prompts
     environment:
+      # Database path
+      - DATABASE_PATH=/app/db/scheduler.db
       # Required: OpenAI API Key
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       # Optional: OpenAI Model (defaults to gpt-5.2)
@@ -28,6 +30,9 @@ services:
       - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
       - SMTP_SERVER=${SMTP_SERVER:-smtp.gmail.com}
       - SMTP_PORT=${SMTP_PORT:-587}
+      # Pushover notifications (optional)
+      - PUSHOVER_USER_KEY=${PUSHOVER_USER_KEY:-}
+      - PUSHOVER_APP_TOKEN=${PUSHOVER_APP_TOKEN:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/status')"]
       interval: 30s

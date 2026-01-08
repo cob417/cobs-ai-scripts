@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>Cob's AI Scripts</Name>
-  <Repository>cob-ai-scripts:latest</Repository>
+  <Repository>cob417/cob-ai-scripts:latest</Repository>
   <Registry>https://hub.docker.com</Registry>
   <Network>bridge</Network>
   <MyIP/>
@@ -22,9 +22,10 @@
   <DonateLink/>
   <Requires/>
   <Config Name="Port 8000" Target="8000" Default="8000" Mode="tcp" Description="FastAPI Web Server Port" Type="Port" Display="always" Required="true" Mask="false">8000</Config>
-  <Config Name="Database" Target="/app/backend/scheduler.db" Default="/mnt/user/appdata/cob-ai-scripts/scheduler.db" Mode="rw" Description="SQLite Database File" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/cob-ai-scripts/scheduler.db</Config>
+  <Config Name="Database Directory" Target="/app/db" Default="/mnt/user/appdata/cob-ai-scripts/db" Mode="rw" Description="SQLite Database Directory" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/cob-ai-scripts/db</Config>
   <Config Name="Data Directory" Target="/app/data" Default="/mnt/user/appdata/cob-ai-scripts/data" Mode="rw" Description="Job Output Data Directory" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/cob-ai-scripts/data</Config>
   <Config Name="Prompts Directory" Target="/app/prompts" Default="/mnt/user/appdata/cob-ai-scripts/prompts" Mode="rw" Description="Prompt Markdown Files Directory" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/cob-ai-scripts/prompts</Config>
+  <Config Name="Database Path" Target="DATABASE_PATH" Default="/app/db/scheduler.db" Mode="" Description="Path to SQLite database file inside container" Type="Variable" Display="always" Required="true" Mask="false">/app/db/scheduler.db</Config>
   <Config Name="OpenAI API Key" Target="OPENAI_API_KEY" Default="" Mode="" Description="OpenAI API Key (Required)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
   <Config Name="OpenAI Model" Target="OPENAI_MODEL" Default="gpt-5.2" Mode="" Description="OpenAI Model to Use" Type="Variable" Display="always" Required="false" Mask="false">gpt-5.2</Config>
   <Config Name="Web Search Enabled" Target="WEB_SEARCH" Default="true" Mode="" Description="Enable Web Search in AI Responses" Type="Variable" Display="always" Required="false" Mask="false">true</Config>
@@ -32,4 +33,6 @@
   <Config Name="Email Password" Target="EMAIL_PASSWORD" Default="" Mode="" Description="Email Password or App Password" Type="Variable" Display="always" Required="false" Mask="true"></Config>
   <Config Name="SMTP Server" Target="SMTP_SERVER" Default="smtp.gmail.com" Mode="" Description="SMTP Server Address" Type="Variable" Display="always" Required="false" Mask="false">smtp.gmail.com</Config>
   <Config Name="SMTP Port" Target="SMTP_PORT" Default="587" Mode="" Description="SMTP Server Port" Type="Variable" Display="always" Required="false" Mask="false">587</Config>
+  <Config Name="Pushover User Key" Target="PUSHOVER_USER_KEY" Default="" Mode="" Description="Pushover User Key for Notifications" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Pushover App Token" Target="PUSHOVER_APP_TOKEN" Default="" Mode="" Description="Pushover Application Token" Type="Variable" Display="always" Required="false" Mask="true"></Config>
 </Container>

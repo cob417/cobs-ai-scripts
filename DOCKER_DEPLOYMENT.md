@@ -115,6 +115,7 @@ docker run -d \
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
+| `DATABASE_PATH` | Yes | `/app/db/scheduler.db` | Path to SQLite database file |
 | `OPENAI_API_KEY` | Yes | - | Your OpenAI API key |
 | `OPENAI_MODEL` | No | `gpt-5.2` | OpenAI model to use |
 | `WEB_SEARCH` | No | `true` | Enable web search in AI responses |
@@ -122,12 +123,18 @@ docker run -d \
 | `EMAIL_PASSWORD` | No | - | Email password or app password |
 | `SMTP_SERVER` | No | `smtp.gmail.com` | SMTP server address |
 | `SMTP_PORT` | No | `587` | SMTP server port |
+| `PUSHOVER_USER_KEY` | No | - | Pushover user key for notifications |
+| `PUSHOVER_APP_TOKEN` | No | - | Pushover application token |
 
 ## Volume Mounts
 
-- **Database**: `/app/backend/scheduler.db` - SQLite database file
-- **Data**: `/app/data` - Directory for job output files
-- **Prompts**: `/app/prompts` - Directory for prompt markdown files
+| Name | Container Path | Host Path (Unraid example) |
+|------|----------------|---------------------------|
+| Database Directory | `/app/db` | `/mnt/user/appdata/cob-ai-scripts/db` |
+| Data Directory | `/app/data` | `/mnt/user/appdata/cob-ai-scripts/data` |
+| Prompts Directory | `/app/prompts` | `/mnt/user/appdata/cob-ai-scripts/prompts` |
+
+**Important**: Mount the database as a **directory**, not a file. Docker file mounts can be unreliable.
 
 ## Updating the Container
 

@@ -9,9 +9,8 @@ from datetime import datetime
 import os
 from pathlib import Path
 
-# Get the directory where this script is located
-SCRIPT_DIR = Path(__file__).parent.parent.absolute()
-DB_PATH = SCRIPT_DIR / "backend" / "scheduler.db"
+# Get database path from environment variable or use default
+DB_PATH = os.getenv("DATABASE_PATH", "/app/backend/scheduler.db")
 
 # Create database engine
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
